@@ -1,0 +1,37 @@
+{
+  "name": "vpn-backend",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/handler.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/local-server.js",
+    "serve": "aws-lambda-ric dist/handler.handler",
+    "dev": "tsx src/local-server.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ec2": "^3.530.0",
+    "@aws-sdk/client-s3": "^3.530.0",
+    "@aws-sdk/s3-request-presigner": "^3.530.0",
+    "aws-lambda": "^1.0.7",
+    "aws-lambda-ric": "^2.0.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.134",
+    "@types/node": "^20.12.7",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-simple-import-sort": "^12.1.0",
+    "tsx": "^4.7.3",
+    "typescript": "^5.4.3",
+    "vitest": "^1.5.0"
+  }
+}

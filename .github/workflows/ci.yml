@@ -1,0 +1,217 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install backend dependencies
+        run: npm install
+        working-directory: backend
+
+      - name: Lint backend
+        run: npm run lint
+        working-directory: backend
+
+      - name: Test backend
+        run: npm test
+        working-directory: backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: backend
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Test frontend
+        run: npm test
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vpn-app-dist
+          path: |
+            backend/dist
+            frontend/dist
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment:
+      name: production
+      url: ${{ secrets.FRONTEND_PUBLIC_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install backend dependencies
+        run: npm install
+        working-directory: backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: backend
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: Prepare deployment context
+        env:
+          SAM_STACK_NAME: ${{ secrets.SAM_STACK_NAME }}
+          SAM_ARTIFACT_BUCKET: ${{ secrets.SAM_ARTIFACT_BUCKET }}
+          VPN_CONFIG_BUCKET: ${{ secrets.VPN_CONFIG_BUCKET }}
+          FRONTEND_BUCKET: ${{ secrets.FRONTEND_BUCKET }}
+          VPN_INSTANCE_PROFILE_ARN: ${{ secrets.VPN_INSTANCE_PROFILE_ARN }}
+          VPN_PROJECT_TAG: ${{ secrets.VPN_PROJECT_TAG }}
+          VPN_OWNER_TAG: ${{ secrets.VPN_OWNER_TAG }}
+          VPN_INSTANCE_TYPE: ${{ secrets.VPN_INSTANCE_TYPE }}
+          VPN_ALLOWED_REGIONS: ${{ secrets.VPN_ALLOWED_REGIONS }}
+          VPN_DEFAULT_REGION: ${{ secrets.VPN_DEFAULT_REGION }}
+          VPN_WG_PORT: ${{ secrets.VPN_WG_PORT }}
+          VPN_API_URL: ${{ secrets.VPN_API_URL }}
+        run: |
+          set -euo pipefail
+          STACK_NAME=${SAM_STACK_NAME:-vpn-pwa}
+          echo "SAM_STACK_NAME=$STACK_NAME" >> "$GITHUB_ENV"
+
+          ARTIFACT_BUCKET=${SAM_ARTIFACT_BUCKET:-${STACK_NAME}-artifacts}
+          if ! aws s3api head-bucket --bucket "$ARTIFACT_BUCKET" 2>/dev/null; then
+            aws s3 mb "s3://${ARTIFACT_BUCKET}"
+          fi
+          echo "SAM_ARTIFACT_BUCKET=$ARTIFACT_BUCKET" >> "$GITHUB_ENV"
+
+          echo "CONFIG_BUCKET_OVERRIDE=${VPN_CONFIG_BUCKET:-}" >> "$GITHUB_ENV"
+          echo "FRONTEND_BUCKET_OVERRIDE=${FRONTEND_BUCKET:-}" >> "$GITHUB_ENV"
+          echo "INSTANCE_PROFILE_OVERRIDE=${VPN_INSTANCE_PROFILE_ARN:-}" >> "$GITHUB_ENV"
+          echo "PROJECT_TAG=${VPN_PROJECT_TAG:-vpn-pwa}" >> "$GITHUB_ENV"
+          echo "OWNER_TAG=${VPN_OWNER_TAG:-self}" >> "$GITHUB_ENV"
+          echo "INSTANCE_TYPE=${VPN_INSTANCE_TYPE:-t3.micro}" >> "$GITHUB_ENV"
+          echo "ALLOWED_REGIONS=${VPN_ALLOWED_REGIONS:-eu-west-3,eu-central-1,us-east-1}" >> "$GITHUB_ENV"
+          echo "DEFAULT_REGION=${VPN_DEFAULT_REGION:-eu-west-3}" >> "$GITHUB_ENV"
+          echo "WIREGUARD_PORT=${VPN_WG_PORT:-51820}" >> "$GITHUB_ENV"
+          echo "VPN_API_URL_OVERRIDE=${VPN_API_URL:-}" >> "$GITHUB_ENV"
+
+      - name: Package Lambda artefact
+        run: |
+          set -euo pipefail
+          sam package \
+            --template-file infra/template.yaml \
+            --output-template-file infra/packaged.yaml \
+            --s3-bucket "$SAM_ARTIFACT_BUCKET"
+
+      - name: Deploy Lambda + API Gateway
+        run: |
+          set -euo pipefail
+          sam deploy \
+            --template-file infra/packaged.yaml \
+            --stack-name "$SAM_STACK_NAME" \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              ConfigBucketName=${CONFIG_BUCKET_OVERRIDE} \
+              FrontendBucketName=${FRONTEND_BUCKET_OVERRIDE} \
+              InstanceProfileArn=${INSTANCE_PROFILE_OVERRIDE} \
+              ProjectTag=${PROJECT_TAG} \
+              OwnerTag=${OWNER_TAG} \
+              InstanceType=${INSTANCE_TYPE} \
+              AllowedRegions="${ALLOWED_REGIONS}" \
+              DefaultRegion=${DEFAULT_REGION} \
+              WireGuardPort=${WIREGUARD_PORT}
+
+      - name: Capture stack outputs
+        run: |
+          set -euo pipefail
+          API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name "$SAM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
+          CONFIG_BUCKET=$(aws cloudformation describe-stacks --stack-name "$SAM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='ConfigBucketName'].OutputValue" --output text)
+          FRONT_BUCKET=$(aws cloudformation describe-stacks --stack-name "$SAM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
+          INSTANCE_PROFILE=$(aws cloudformation describe-stacks --stack-name "$SAM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='InstanceProfileArn'].OutputValue" --output text)
+
+          API_ENDPOINT=${API_ENDPOINT:-}
+          CONFIG_BUCKET=${CONFIG_BUCKET:-${CONFIG_BUCKET_OVERRIDE}}
+          FRONT_BUCKET=${FRONT_BUCKET:-${FRONTEND_BUCKET_OVERRIDE}}
+          INSTANCE_PROFILE=${INSTANCE_PROFILE:-${INSTANCE_PROFILE_OVERRIDE}}
+
+          echo "API_ENDPOINT=$API_ENDPOINT" >> "$GITHUB_ENV"
+          echo "CONFIG_BUCKET_NAME=$CONFIG_BUCKET" >> "$GITHUB_ENV"
+          echo "FRONTEND_BUCKET_NAME=$FRONT_BUCKET" >> "$GITHUB_ENV"
+          echo "INSTANCE_PROFILE_ARN=$INSTANCE_PROFILE" >> "$GITHUB_ENV"
+
+          RESOLVED_API_URL=${VPN_API_URL_OVERRIDE:-$API_ENDPOINT}
+          if [ -z "$RESOLVED_API_URL" ]; then
+            echo "API endpoint could not be resolved" >&2
+            exit 1
+          fi
+          echo "RESOLVED_API_URL=$RESOLVED_API_URL" >> "$GITHUB_ENV"
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: ${{ env.RESOLVED_API_URL }}
+        run: npm run build
+        working-directory: frontend
+
+      - name: Upload PWA to S3
+        run: |
+          set -euo pipefail
+          if [ -z "${FRONTEND_BUCKET_NAME}" ] || [ "${FRONTEND_BUCKET_NAME}" = "None" ]; then
+            echo "Frontend bucket name not available" >&2
+            exit 1
+          fi
+          aws s3 sync frontend/dist "s3://${FRONTEND_BUCKET_NAME}" --delete
+          aws s3 cp frontend/dist/index.html "s3://${FRONTEND_BUCKET_NAME}/index.html" --cache-control "no-cache, no-store, must-revalidate"
+
+      - name: Clean SAM artefacts bucket
+        run: |
+          set -euo pipefail
+          if [ -n "${SAM_ARTIFACT_BUCKET}" ] && [ "${SAM_ARTIFACT_BUCKET}" != "None" ]; then
+            if aws s3api head-bucket --bucket "$SAM_ARTIFACT_BUCKET" 2>/dev/null; then
+              aws s3 rm "s3://${SAM_ARTIFACT_BUCKET}" --recursive || true
+              aws s3 rb "s3://${SAM_ARTIFACT_BUCKET}" || true
+            fi
+          fi

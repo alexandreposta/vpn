@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: VPN WireGuard PWA backend
+
+Parameters:
+  ConfigBucketName:
+    Type: String
+    Default: ''
+    Description: Optional existing S3 bucket where WireGuard client configs are stored. Leave blank to auto-create `${StackName}-wireguard-config`.
+  FrontendBucketName:
+    Type: String
+    Default: ''
+    Description: Optional existing S3 bucket hosting the PWA. Leave blank to auto-create `${StackName}-pwa-hosting`.
+  InstanceProfileArn:
+    Type: String
+    Default: ''
+    Description: Optional EC2 IAM instance profile ARN with S3 + tagging permissions. Leave blank to provision one.
+  ProjectTag:
+    Type: String
+    Default: vpn-pwa
+  OwnerTag:
+    Type: String
+    Default: self
+  InstanceType:
+    Type: String
+    Default: t4g.micro
+  AllowedRegions:
+    Type: String
+    Default: eu-west-3,eu-central-1,us-east-1
+  DefaultRegion:
+    Type: String
+    Default: eu-west-3
+  WireGuardPort:
+    Type: Number
+    Default: 51820
+
+Conditions:
+  HasConfigBucketName: !Not [!Equals [!Ref ConfigBucketName, '']]
+  HasFrontendBucketName: !Not [!Equals [!Ref FrontendBucketName, '']]
+  HasInstanceProfileArn: !Not [!Equals [!Ref InstanceProfileArn, '']]
+  CreateConfigBucket: !Equals [!Ref ConfigBucketName, '']
+  CreateFrontendBucket: !Equals [!Ref FrontendBucketName, '']
+  CreateInstanceProfile: !Equals [!Ref InstanceProfileArn, '']
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures:
+      - x86_64
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        S3_CONFIG_BUCKET: !If [HasConfigBucketName, !Ref ConfigBucketName, !Ref WireGuardConfigBucket]
+        INSTANCE_PROFILE_ARN: !If [HasInstanceProfileArn, !Ref InstanceProfileArn, !GetAtt EC2InstanceProfile.Arn]
+        PROJECT_TAG: !Ref ProjectTag
+        OWNER_TAG: !Ref OwnerTag
+        INSTANCE_TYPE: !Ref InstanceType
+        ALLOWED_REGIONS: !Ref AllowedRegions
+        DEFAULT_REGION: !Ref DefaultRegion
+        WIREGUARD_PORT: !Ref WireGuardPort
+
+Resources:
+  WireGuardConfigBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateConfigBucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-wireguard-config
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  FrontendHostingBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateFrontendBucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-pwa-hosting
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Condition: CreateInstanceProfile
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-wireguard-ec2
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WireGuardConfigAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource:
+                  - !If
+                      - HasConfigBucketName
+                      - !Sub arn:aws:s3:::${ConfigBucketName}/*
+                      - !Sub arn:aws:s3:::${WireGuardConfigBucket}/*
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !If
+                  - HasConfigBucketName
+                  - !Sub arn:aws:s3:::${ConfigBucketName}
+                  - !Sub arn:aws:s3:::${WireGuardConfigBucket}
+        - PolicyName: WireGuardTagging
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:CreateTags
+                  - ec2:DescribeInstances
+                Resource: '*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: CreateInstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${AWS::StackName}-wireguard-profile
+      Roles:
+        - !Ref EC2InstanceRole
+
+  VpnApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowHeaders:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+          - DELETE
+        AllowOrigins:
+          - '*'
+
+  VpnFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/dist
+      Handler: handler.handler
+      Description: Manage WireGuard EC2 instances
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ec2:RunInstances
+                - ec2:TerminateInstances
+                - ec2:StartInstances
+                - ec2:StopInstances
+                - ec2:RebootInstances
+                - ec2:DescribeInstances
+                - ec2:CreateTags
+                - ec2:DescribeSubnets
+                - ec2:DescribeSecurityGroups
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectAttributes
+              Resource:
+                - !If
+                    - HasConfigBucketName
+                    - !Sub arn:aws:s3:::${ConfigBucketName}/*
+                    - !Sub arn:aws:s3:::${WireGuardConfigBucket}/*
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource: !If
+                - HasConfigBucketName
+                - !Sub arn:aws:s3:::${ConfigBucketName}
+                - !Sub arn:aws:s3:::${WireGuardConfigBucket}
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: !If
+                - HasInstanceProfileArn
+                - !Ref InstanceProfileArn
+                - !GetAtt EC2InstanceRole.Arn
+      Events:
+        ApiProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VpnApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiEndpoint:
+    Value: !Sub https://${VpnApi}.execute-api.${AWS::Region}.amazonaws.com
+    Description: HTTP API endpoint for the VPN backend
+  ConfigBucketName:
+    Value: !If [HasConfigBucketName, !Ref ConfigBucketName, !Ref WireGuardConfigBucket]
+    Description: S3 bucket storing generated WireGuard client configurations
+  FrontendBucketName:
+    Value: !If [HasFrontendBucketName, !Ref FrontendBucketName, !Ref FrontendHostingBucket]
+    Description: S3 bucket hosting the PWA static assets
+  InstanceProfileArn:
+    Value: !If [HasInstanceProfileArn, !Ref InstanceProfileArn, !GetAtt EC2InstanceProfile.Arn]
+    Description: IAM instance profile ARN attached to EC2 WireGuard nodes

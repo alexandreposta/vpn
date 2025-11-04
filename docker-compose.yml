@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+    command: >
+      bash -lc "cd backend &&
+      npm install &&
+      npm run build &&
+      npm run start"
+    environment:
+      NODE_ENV: development
+      INSTANCE_TYPE: t4g.micro
+      PROJECT_TAG: vpn-pwa
+      OWNER_TAG: local
+      S3_CONFIG_BUCKET: your-wireguard-config-bucket
+      ALLOWED_REGIONS: eu-west-3,eu-central-1,us-east-1
+      DEFAULT_REGION: eu-west-3
+      WIREGUARD_PORT: 51820
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./:/workspace
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+    command: >
+      bash -lc "cd frontend &&
+      npm install &&
+      npm run dev -- --host 0.0.0.0"
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://backend:3000
+    ports:
+      - '5173:5173'
+    depends_on:
+      - backend
+    volumes:
+      - ./:/workspace

@@ -68,11 +68,8 @@ jobs:
       contents: read
     environment:
       name: production
-      url: ${{ secrets.FRONTEND_PUBLIC_URL }}
     env:
-      AWS_DEPLOY_REGION: ${{ secrets.AWS_REGION || 'eu-west-3' }}
-      AWS_REGION: ${{ secrets.AWS_REGION || 'eu-west-3' }}
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'eu-west-3' }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,7 +85,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_DEPLOY_REGION }}
+          aws-region: ${{ env.AWS_REGION != '' && env.AWS_REGION || 'eu-west-3' }}
 
       - name: Install backend dependencies
         run: npm install

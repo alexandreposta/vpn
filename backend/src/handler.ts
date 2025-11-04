@@ -1,21 +1,21 @@
-import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import type { Instance } from '@aws-sdk/client-ec2';
 import {
+  CreateTagsCommand,
   DescribeInstancesCommand,
+  RebootInstancesCommand,
   RunInstancesCommand,
   StartInstancesCommand,
   StopInstancesCommand,
-  RebootInstancesCommand,
-  TerminateInstancesCommand,
-  CreateTagsCommand,
-  Tag
+  Tag,
+  TerminateInstancesCommand
 } from '@aws-sdk/client-ec2';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { z } from 'zod';
 
 import { buildClients, deriveRegion } from './aws-clients';
-import { getEnv, type EnvConfig } from './environment';
+import { type EnvConfig, getEnv } from './environment';
 import type { AllowedAction, ConfigResponse, CreateInstancePayload, InstanceSummary } from './types';
 import { buildUserData } from './wireguard';
 

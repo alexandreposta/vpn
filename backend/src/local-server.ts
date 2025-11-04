@@ -1,3 +1,4 @@
+import type { Context } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import http from 'http';
 import { URL } from 'url';
@@ -50,7 +51,7 @@ const server = http.createServer(async (req, res) => {
   } as const;
 
   try {
-    const response = await handler(event, {} as any, () => {});
+    const response = await handler(event, {} as Context, () => {});
     res.statusCode = response?.statusCode ?? 200;
     if (response?.headers) {
       Object.entries(response.headers).forEach(([key, value]) => {

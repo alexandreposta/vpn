@@ -47,7 +47,8 @@ This builds the Node.js image defined in `docker/dev.Dockerfile`, installs depen
 
 | Secret | Description |
 | --- | --- |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Obligatoire. Identifiants IAM autorisés à créer les stacks, les buckets. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Obligatoire. Identifiants IAM autorisés à créer les stacks, les buckets. |
+| `AWS_REGION` (optionnel) | Région utilisée par la CI/CD. Par défaut `eu-west-3` si le secret est absent. |
 | `SAM_STACK_NAME` (optionnel) | Nom du stack CloudFormation (défaut `vpn-pwa`). |
 | `SAM_ARTIFACT_BUCKET` (optionnel) | Bucket S3 pour les artefacts SAM. Laisse vide pour qu'il soit créé automatiquement (`<stack>-artifacts`). |
 | `VPN_CONFIG_BUCKET` (optionnel) | Bucket S3 pour les fichiers WireGuard. Vide ⇒ créé automatiquement (`<stack>-wireguard-config`). |
@@ -57,7 +58,7 @@ This builds the Node.js image defined in `docker/dev.Dockerfile`, installs depen
 | `FRONTEND_PUBLIC_URL` (optionnel) | URL publique de la PWA (affichée dans l’onglet Environments GitHub). |
 | `VPN_PROJECT_TAG`, `VPN_OWNER_TAG`, `VPN_INSTANCE_TYPE`, `VPN_ALLOWED_REGIONS`, `VPN_DEFAULT_REGION`, `VPN_WG_PORT` (optionnels) | Override des paramètres par défaut du template SAM (`VPN_INSTANCE_TYPE` par défaut `t4g.micro`). |
 
-Le workflow crée automatiquement les buckets et l'instance profile si tu laisses les secrets correspondants vides. Ton utilisateur IAM doit toutefois avoir les autorisations `s3:*`, `cloudformation:*`, `iam:PassRole/iam:CreateRole`, `iam:CreateInstanceProfile`, etc.
+Le workflow crée automatiquement les buckets et l'instance profile si tu laisses les secrets correspondants vides. Ton utilisateur IAM doit toutefois avoir les autorisations `s3:*`, `cloudformation:*`, `iam:PassRole/iam:CreateRole`, `iam:CreateInstanceProfile`, etc. Si `AWS_REGION` n'est pas fourni, la CI utilisera `eu-west-3` par défaut.
 
 Le build frontend utilise `VPN_API_URL` si présent, sinon il récupère l'endpoint HTTP API renvoyé par CloudFormation.
 

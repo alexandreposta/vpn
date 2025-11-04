@@ -48,5 +48,7 @@
   - Installe les dépendances avec npm.
   - Exécute lint, tests, build pour front/back.
   - Prépare/initialise les buckets manquants, package le backend via `sam package`, déploie le stack CloudFormation, puis sync la PWA sur un bucket S3 (créé automatiquement si besoin).
+  - Nettoie le bucket d'artefacts SAM après déploiement.
+  - Utilise `eu-west-3` comme région par défaut si `AWS_REGION` n'est pas fourni côté GitHub.
 
 Adjust IAM, network security groups, and S3 policies before production use.

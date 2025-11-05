@@ -136,6 +136,12 @@ jobs:
           echo "WIREGUARD_PORT=${VPN_WG_PORT:-51820}" >> "$GITHUB_ENV"
           echo "VPN_API_URL_OVERRIDE=${VPN_API_URL:-}" >> "$GITHUB_ENV"
 
+      - name: Prepare Lambda package
+        run: |
+          set -euo pipefail
+          # Copy package.json to build directory for ES modules support
+          cp backend/package.json backend/build/package.json
+
       - name: Package Lambda artefact
         run: |
           set -euo pipefail

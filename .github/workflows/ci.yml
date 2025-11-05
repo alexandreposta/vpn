@@ -171,25 +171,34 @@ jobs:
         run: |
           set -euo pipefail
           
+          echo "📦 Analyzing packaged template..."
+          cat infra/packaged.yaml | grep -A 2 "CodeUri:"
+          
           # Extract the S3 key from packaged template
-          PACKAGE_KEY=$(grep -oP 's3://[^/]+/\K.*' infra/packaged.yaml | grep '\.zip' | head -1)
+          PACKAGE_KEY=$(grep -oP 's3://[^/]+/\K.*' infra/packaged.yaml | grep '\.zip' | head -1 || true)
+          
+          echo "Found package key: $PACKAGE_KEY"
           
           if [ -n "$PACKAGE_KEY" ]; then
             cd backend/build
             
+            echo "🗑️  Removing dev dependencies..."
             # Remove dev-only dependencies that are huge
             rm -rf node_modules/aws-lambda-ric  # 161MB - only needed for local testing
             rm -rf node_modules/aws-sdk         # 101MB - we use @aws-sdk v3
             rm -rf node_modules/node-gyp        # 2.6MB - build tool not needed in Lambda
             
+            echo "📦 Creating optimized package..."
             # Create optimized zip
-            zip -r /tmp/lambda-optimized.zip . -x "*.test.js" "vitest.config.*"
+            zip -rq /tmp/lambda-optimized.zip . -x "*.test.js" "vitest.config.*"
             
+            echo "📤 Uploading to S3..."
             # Upload to same location
             aws s3 cp /tmp/lambda-optimized.zip "s3://$SAM_ARTIFACT_BUCKET/$PACKAGE_KEY"
             echo "✅ Uploaded optimized Lambda package (saved ~260MB)"
           else
             echo "⚠️  Could not find package key, skipping optimization"
+            exit 0
           fi
 
       - name: Deploy Lambda + API Gateway

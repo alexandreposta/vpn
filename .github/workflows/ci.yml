@@ -141,6 +141,22 @@ jobs:
           set -euo pipefail
           # Copy package.json to build directory for ES modules support
           cp backend/package.json backend/build/package.json
+          
+          # Install production dependencies in build directory
+          cd backend/build
+          npm install --omit=dev --no-package-lock
+          
+          # Remove unnecessary files to reduce bundle size
+          find node_modules -name "*.md" -type f -delete
+          find node_modules -name "*.ts" -type f -delete
+          find node_modules -name "*.map" -type f -delete
+          find node_modules -name "README*" -type f -delete
+          find node_modules -name "CHANGELOG*" -type f -delete
+          find node_modules -name "LICENSE*" -type f -delete
+          find node_modules -name "*.txt" -type f -delete
+          find node_modules -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true
 
       - name: Package Lambda artefact
         run: |

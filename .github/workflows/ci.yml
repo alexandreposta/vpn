@@ -146,6 +146,11 @@ jobs:
           cd backend/build
           npm install --omit=dev --no-package-lock
           
+          # Remove dev-only dependencies that are huge
+          rm -rf node_modules/aws-lambda-ric  # 161MB - only needed for local testing
+          rm -rf node_modules/aws-sdk         # 101MB - we use @aws-sdk v3
+          rm -rf node_modules/node-gyp        # 2.6MB - build tool not needed in Lambda
+          
           # Remove unnecessary files to reduce bundle size
           find node_modules -name "*.md" -type f -delete
           find node_modules -name "*.ts" -type f -delete

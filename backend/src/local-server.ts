@@ -1,4 +1,4 @@
-import type { Context } from 'aws-lambda';
+import type { APIGatewayProxyResultV2, Context } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import http from 'http';
 import { URL } from 'url';
@@ -51,16 +51,31 @@ const server = http.createServer(async (req, res) => {
   } as const;
 
   try {
-    const response = await handler(event, {} as Context, () => {});
-    res.statusCode = response?.statusCode ?? 200;
-    if (response?.headers) {
+    const result = await handler(event, {} as Context, () => {});
+
+    if (!result) {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    if (typeof result === 'string') {
+      res.statusCode = 200;
+      res.setHeader('content-type', 'text/plain');
+      res.end(result);
+      return;
+    }
+
+    const response: APIGatewayProxyResultV2<string> = result;
+    res.statusCode = response.statusCode ?? 200;
+    if (response.headers) {
       Object.entries(response.headers).forEach(([key, value]) => {
-        if (value) {
-          res.setHeader(key, value as string);
+        if (typeof value === 'number' || typeof value === 'string') {
+          res.setHeader(key, value);
         }
       });
     }
-    res.end(response?.body ?? '');
+    res.end(response.body ?? '');
   } catch (error) {
     res.statusCode = 500;
     res.end(error instanceof Error ? error.message : 'Internal error');

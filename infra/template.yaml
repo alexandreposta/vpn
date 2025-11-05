@@ -155,7 +155,7 @@ Resources:
   VpnFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/dist
+      CodeUri: ../backend/build
       Handler: handler.handler
       Description: Manage WireGuard EC2 instances
       Policies:

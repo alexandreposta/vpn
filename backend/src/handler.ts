@@ -1,4 +1,4 @@
-import type { Instance } from '@aws-sdk/client-ec2';
+import type { _InstanceType as Ec2InstanceType,Instance } from '@aws-sdk/client-ec2';
 import {
   CreateTagsCommand,
   DescribeInstancesCommand,
@@ -15,7 +15,7 @@ import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { z } from 'zod';
 
 import { buildClients, deriveRegion } from './aws-clients';
-import { type EnvConfig, getEnv } from './environment';
+import { type EnvConfig,getEnv } from './environment';
 import type { AllowedAction, ConfigResponse, CreateInstancePayload, InstanceSummary } from './types';
 import { buildUserData } from './wireguard';
 
@@ -47,13 +47,17 @@ const parseBody = <T>(body: string | undefined, schema: z.ZodSchema<T>): T => {
   return parsed;
 };
 
-const mapInstance = (instance: Instance, region: string): InstanceSummary => {
+const mapInstance = (instance: Instance, region: string): InstanceSummary | null => {
+  const instanceId = instance.InstanceId;
+  if (!instanceId) {
+    return null;
+  }
   const tags = instance.Tags ?? [];
   const nameTag = tags.find((tag: Tag) => tag.Key === 'Name');
   const wireguardStatus = tags.find((tag: Tag) => tag.Key === 'WireGuardStatus')?.Value;
   const createdAt = tags.find((tag: Tag) => tag.Key === 'CreatedAt')?.Value;
   return {
-    instanceId: instance.InstanceId,
+    instanceId,
     name: nameTag?.Value ?? null,
     state: instance.State,
     availabilityZone: instance.Placement?.AvailabilityZone,
@@ -113,7 +117,7 @@ const createInstance = async (payload: CreateInstancePayload) => {
   const runResult = await clients.ec2.send(
     new RunInstancesCommand({
       ImageId: 'resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64',
-      InstanceType: envConfig.INSTANCE_TYPE,
+      InstanceType: envConfig.INSTANCE_TYPE as Ec2InstanceType,
       MinCount: 1,
       MaxCount: 1,
       IamInstanceProfile: envConfig.INSTANCE_PROFILE_ARN
@@ -175,7 +179,9 @@ const listInstances = async (region: string) => {
   );
 
   const instances = response.Reservations?.flatMap((reservation) =>
-    (reservation.Instances ?? []).map((instance) => mapInstance(instance, region))
+    (reservation.Instances ?? [])
+      .map((instance) => mapInstance(instance, region))
+      .filter((instance): instance is InstanceSummary => Boolean(instance))
   );
 
   return instances ?? [];
@@ -194,7 +200,8 @@ const getConfig = async (region: string, instanceId: string): Promise<ConfigResp
   let configBody = '';
   try {
     const object = await clients.s3.send(command);
-    configBody = await object.Body?.transformToString('utf-8');
+    const bodyText = await object.Body?.transformToString('utf-8');
+    configBody = bodyText ?? '';
   } catch (error) {
     // When file not ready yet we still return signed url so the frontend can poll later.
   }

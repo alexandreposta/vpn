@@ -40,7 +40,7 @@ CLIENT_PUBLIC_KEY=$(cat client_public.key)
 
 cat >/etc/wireguard/wg0.conf <<EOF
 [Interface]
-PrivateKey = ${SERVER_PRIVATE_KEY}
+PrivateKey = \${SERVER_PRIVATE_KEY}
 Address = 10.8.0.1/24
 ListenPort = ${port}
 PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
@@ -48,7 +48,7 @@ PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -
 SaveConfig = true
 
 [Peer]
-PublicKey = ${CLIENT_PUBLIC_KEY}
+PublicKey = \${CLIENT_PUBLIC_KEY}
 AllowedIPs = 10.8.0.2/32
 PersistentKeepalive = 25
 EOF
@@ -57,19 +57,19 @@ systemctl enable --now wg-quick@wg0
 
 cat > /etc/wireguard/client.conf <<EOF
 [Interface]
-PrivateKey = ${CLIENT_PRIVATE_KEY}
+PrivateKey = \${CLIENT_PRIVATE_KEY}
 Address = 10.8.0.2/24
 DNS = 1.1.1.1
 
 [Peer]
-PublicKey = ${SERVER_PUBLIC_KEY}
+PublicKey = \${SERVER_PUBLIC_KEY}
 AllowedIPs = 0.0.0.0/0, ::/0
 Endpoint = $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):${port}
 PersistentKeepalive = 25
 EOF
 
-aws s3 cp /etc/wireguard/client.conf s3://${bucket}/${projectTag}/${ownerTag}/${INSTANCE_ID}.conf --region "$REGION"
-aws ec2 create-tags --resources "$INSTANCE_ID" --tags Key=WireGuardStatus,Value=ready --region "$REGION"
+aws s3 cp /etc/wireguard/client.conf s3://${bucket}/${projectTag}/${ownerTag}/\${INSTANCE_ID}.conf --region "$REGION"
+aws ec2 create-tags --resources "\${INSTANCE_ID}" --tags Key=WireGuardStatus,Value=ready --region "$REGION"
 `;
 
 export const buildUserData = (params: {

@@ -2,14 +2,14 @@
   "name": "vpn-backend",
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/handler.js",
+  "main": "build/handler.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "start": "node dist/local-server.js",
-    "serve": "aws-lambda-ric dist/handler.handler",
+    "start": "node build/local-server.js",
+    "serve": "aws-lambda-ric build/handler.handler",
     "dev": "tsx src/local-server.ts"
   },
   "dependencies": {

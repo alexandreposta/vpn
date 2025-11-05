@@ -1,0 +1,157 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "IAMPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PassRole",
+        "iam:CreateInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::216241083163:role/vpn-pwa-*",
+        "arn:aws:iam::216241083163:instance-profile/vpn-pwa-*"
+      ]
+    },
+    {
+      "Sid": "S3Permissions",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketVersioning",
+        "s3:GetBucketWebsite",
+        "s3:PutBucketWebsite",
+        "s3:DeleteBucketWebsite",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:PutObjectAcl",
+        "s3:GetBucketAcl",
+        "s3:PutBucketAcl",
+        "s3:HeadBucket",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::vpn-pwa-*",
+        "arn:aws:s3:::vpn-pwa-*/*"
+      ]
+    },
+    {
+      "Sid": "CloudFormationPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResource",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:GetTemplate",
+        "cloudformation:ValidateTemplate",
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:ListStackResources",
+        "cloudformation:GetTemplateSummary",
+        "cloudformation:ContinueUpdateRollback"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:*:216241083163:stack/vpn-pwa/*",
+        "arn:aws:cloudformation:*:216241083163:stack/vpn-pwa-*/*",
+        "arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31"
+      ]
+    },
+    {
+      "Sid": "LambdaPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags",
+        "lambda:PublishVersion",
+        "lambda:GetPolicy"
+      ],
+      "Resource": [
+        "arn:aws:lambda:*:216241083163:function:vpn-pwa-*"
+      ]
+    },
+    {
+      "Sid": "APIGatewayPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:POST",
+        "apigateway:GET",
+        "apigateway:PUT",
+        "apigateway:PATCH",
+        "apigateway:DELETE",
+        "apigateway:TagResource",
+        "apigateway:UntagResource",
+        "apigateway:GetTags"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:*::/apis",
+        "arn:aws:apigateway:*::/apis/*",
+        "arn:aws:apigateway:*::/tags/*",
+        "arn:aws:apigateway:*::/v2/apis",
+        "arn:aws:apigateway:*::/v2/apis/*"
+      ]
+    },
+    {
+      "Sid": "EC2Permissions",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceStatus",
+        "ec2:RunInstances",
+        "ec2:StartInstances",
+        "ec2:StopInstances",
+        "ec2:RebootInstances",
+        "ec2:TerminateInstances",
+        "ec2:CreateTags",
+        "ec2:DescribeImages",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

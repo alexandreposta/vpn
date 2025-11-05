@@ -201,6 +201,41 @@ jobs:
             exit 0
           fi
 
+      - name: Check and cleanup failed stack
+        run: |
+          set -euo pipefail
+          
+          echo "🔍 Checking stack status..."
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$SAM_STACK_NAME" --region "$AWS_REGION" --query 'Stacks[0].StackStatus' --output text 2>&1 || echo "DOES_NOT_EXIST")
+          
+          echo "Current stack status: $STACK_STATUS"
+          
+          if [[ "$STACK_STATUS" == "DELETE_FAILED" || "$STACK_STATUS" == "UPDATE_ROLLBACK_FAILED" ]]; then
+            echo "⚠️  Stack is in failed state, cleaning up..."
+            
+            # Empty buckets that might prevent deletion
+            echo "Emptying S3 buckets..."
+            aws s3 rm "s3://${SAM_STACK_NAME}-pwa-hosting" --recursive 2>/dev/null || true
+            aws s3 rm "s3://${SAM_STACK_NAME}-wireguard-config" --recursive 2>/dev/null || true
+            
+            # Delete the stack
+            echo "Deleting stack..."
+            aws cloudformation delete-stack --stack-name "$SAM_STACK_NAME" --region "$AWS_REGION"
+            
+            # Wait for deletion
+            echo "Waiting for stack deletion (max 5 minutes)..."
+            aws cloudformation wait stack-delete-complete \
+              --stack-name "$SAM_STACK_NAME" \
+              --region "$AWS_REGION" \
+              2>&1 || echo "Stack deletion timeout or completed with issues"
+            
+            echo "✅ Stack cleaned up, deployment will create fresh stack"
+          elif [[ "$STACK_STATUS" == "DOES_NOT_EXIST" ]]; then
+            echo "✅ No existing stack, will create new one"
+          else
+            echo "✅ Stack is in valid state ($STACK_STATUS), proceeding with update"
+          fi
+
       - name: Deploy Lambda + API Gateway
         run: |
           set -euo pipefail

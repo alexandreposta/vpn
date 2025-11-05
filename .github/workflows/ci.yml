@@ -146,12 +146,8 @@ jobs:
           cd backend/build
           npm install --omit=dev --no-package-lock
           
-          # Remove dev-only dependencies that are huge
-          rm -rf node_modules/aws-lambda-ric  # 161MB - only needed for local testing
-          rm -rf node_modules/aws-sdk         # 101MB - we use @aws-sdk v3
-          rm -rf node_modules/node-gyp        # 2.6MB - build tool not needed in Lambda
-          
           # Remove unnecessary files to reduce bundle size
+          # Note: Keep aws-lambda-ric for SAM packaging, will remove after
           find node_modules -name "*.md" -type f -delete
           find node_modules -name "*.ts" -type f -delete
           find node_modules -name "*.map" -type f -delete
@@ -170,6 +166,25 @@ jobs:
             --template-file infra/template.yaml \
             --output-template-file infra/packaged.yaml \
             --s3-bucket "$SAM_ARTIFACT_BUCKET"
+
+      - name: Optimize Lambda bundle post-packaging
+        run: |
+          set -euo pipefail
+          cd backend/build
+          # Remove dev-only dependencies that are huge
+          rm -rf node_modules/aws-lambda-ric  # 161MB - only needed for local testing
+          rm -rf node_modules/aws-sdk         # 101MB - we use @aws-sdk v3
+          rm -rf node_modules/node-gyp        # 2.6MB - build tool not needed in Lambda
+          
+          # Re-upload optimized package to S3
+          PACKAGE_KEY=$(grep -oP 's3://[^/]+/\K.*' infra/packaged.yaml | grep '\.zip' | head -1)
+          if [ -n "$PACKAGE_KEY" ]; then
+            # Create optimized zip
+            zip -r /tmp/lambda-optimized.zip . -x "*.test.js" "vitest.config.*"
+            # Upload to same location
+            aws s3 cp /tmp/lambda-optimized.zip "s3://$SAM_ARTIFACT_BUCKET/$PACKAGE_KEY"
+            echo "✅ Uploaded optimized Lambda package (saved ~260MB)"
+          fi
 
       - name: Deploy Lambda + API Gateway
         run: |

@@ -2,7 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowPathIcon, ArrowUpOnSquareIcon, CloudArrowDownIcon, CloudIcon, RocketLaunchIcon, StopCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 import { createInstance, fetchConfig, fetchInstances, fetchRegions, triggerInstanceAction } from '../../lib/api';
 const toLabel = (status) => {
     switch (status) {

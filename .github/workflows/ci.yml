@@ -147,22 +147,26 @@ jobs:
       - name: Deploy Lambda + API Gateway
         run: |
           set -euo pipefail
+          
+          # Build parameter overrides, excluding empty values
+          PARAMS=""
+          [ -n "${CONFIG_BUCKET_OVERRIDE}" ] && PARAMS="${PARAMS} ConfigBucketName=${CONFIG_BUCKET_OVERRIDE}"
+          [ -n "${FRONTEND_BUCKET_OVERRIDE}" ] && PARAMS="${PARAMS} FrontendBucketName=${FRONTEND_BUCKET_OVERRIDE}"
+          [ -n "${INSTANCE_PROFILE_OVERRIDE}" ] && PARAMS="${PARAMS} InstanceProfileArn=${INSTANCE_PROFILE_OVERRIDE}"
+          PARAMS="${PARAMS} ProjectTag=${PROJECT_TAG}"
+          PARAMS="${PARAMS} OwnerTag=${OWNER_TAG}"
+          PARAMS="${PARAMS} InstanceType=${INSTANCE_TYPE}"
+          PARAMS="${PARAMS} AllowedRegions=\"${ALLOWED_REGIONS}\""
+          PARAMS="${PARAMS} DefaultRegion=${DEFAULT_REGION}"
+          PARAMS="${PARAMS} WireGuardPort=${WIREGUARD_PORT}"
+          
           sam deploy \
             --template-file infra/packaged.yaml \
             --stack-name "$SAM_STACK_NAME" \
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --parameter-overrides \
-              ConfigBucketName=${CONFIG_BUCKET_OVERRIDE} \
-              FrontendBucketName=${FRONTEND_BUCKET_OVERRIDE} \
-              InstanceProfileArn=${INSTANCE_PROFILE_OVERRIDE} \
-              ProjectTag=${PROJECT_TAG} \
-              OwnerTag=${OWNER_TAG} \
-              InstanceType=${INSTANCE_TYPE} \
-              AllowedRegions="${ALLOWED_REGIONS}" \
-              DefaultRegion=${DEFAULT_REGION} \
-              WireGuardPort=${WIREGUARD_PORT}
+            --parameter-overrides ${PARAMS}
 
       - name: Capture stack outputs
         run: |

@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import http from 'http';
 import { URL } from 'url';
 
-import { handler } from './handler';
+import { handler } from './handler.js';
 
 const server = http.createServer(async (req, res) => {
   if (!req.url || !req.method) {

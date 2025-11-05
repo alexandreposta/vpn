@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseClientConfig } from './wireguard';
+import { parseClientConfig } from './wireguard.js';
 
 describe('parseClientConfig', () => {
   it('parses WireGuard client configuration', () => {
@@ -20,4 +20,3 @@ PersistentKeepalive = 25`;
     expect(result.peer.endpoint).toBe('test:51820');
   });
 });
-

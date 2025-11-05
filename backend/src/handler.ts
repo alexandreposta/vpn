@@ -14,10 +14,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { z } from 'zod';
 
-import { buildClients, deriveRegion } from './aws-clients';
-import { type EnvConfig,getEnv } from './environment';
-import type { AllowedAction, ConfigResponse, CreateInstancePayload, InstanceSummary } from './types';
-import { buildUserData } from './wireguard';
+import { buildClients, deriveRegion } from './aws-clients.js';
+import { type EnvConfig, getEnv } from './environment.js';
+import type { AllowedAction, ConfigResponse, CreateInstancePayload, InstanceSummary } from './types.js';
+import { buildUserData } from './wireguard.js';
 
 let cachedEnv: EnvConfig | null = null;
 

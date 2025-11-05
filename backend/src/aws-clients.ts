@@ -1,7 +1,7 @@
 import { EC2Client } from '@aws-sdk/client-ec2';
 import { S3Client } from '@aws-sdk/client-s3';
 
-import type { EnvConfig } from './environment';
+import type { EnvConfig } from './environment.js';
 
 interface Clients {
   ec2: EC2Client;

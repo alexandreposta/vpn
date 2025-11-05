@@ -17,9 +17,22 @@ module.exports = {
     'plugin:import/typescript',
     'prettier'
   ],
+  settings: {
+    'import/resolver': {
+      node: {
+        extensions: ['.js', '.jsx', '.ts', '.tsx']
+      }
+    }
+  },
   rules: {
     'simple-import-sort/imports': 'warn',
     'simple-import-sort/exports': 'warn',
-    'import/order': 'off'
+    'import/order': 'off',
+    'import/no-unresolved': [
+      'error',
+      {
+        ignore: ['^\\.\\/.+\\.js$']
+      }
+    ]
   }
 };

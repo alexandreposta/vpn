@@ -9,7 +9,7 @@ import {
   StopCircleIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import clsx from 'clsx';
+import { clsx } from 'clsx';
 
 import {
   ConfigResponse,
@@ -69,15 +69,15 @@ export const App = () => {
   const [newName, setNewName] = useState('');
   const queryClient = useQueryClient();
 
-  const regionsQuery = useQuery({
+  const regionsQuery = useQuery<string[]>({
     queryKey: ['regions'],
-    queryFn: fetchRegions,
-    onSuccess: (regions) => {
-      if (!selectedRegion && regions.length) {
-        setSelectedRegion(regions[0]);
-      }
-    }
+    queryFn: fetchRegions
   });
+
+  // Set default region when regions are loaded
+  if (!selectedRegion && regionsQuery.data?.length) {
+    setSelectedRegion(regionsQuery.data[0]);
+  }
 
   const instancesQuery = useQuery({
     queryKey: ['instances', selectedRegion],

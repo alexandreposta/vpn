@@ -1,75 +1,68 @@
-# VPN Control PWA
+# VPN Control Apps
 
-Progressive Web App and AWS Lambda backend to provision personal WireGuard-enabled EC2 instances on demand.
+Toolkit to provision on-demand WireGuard-enabled EC2 instances (serverless backend) with two independent frontends:
+
+- **Desktop** - Electron shell for a native experience on Windows/macOS/Linux.
+- **iOS/Web** - Vite/React PWA installable from Safari (Add to Home Screen) with offline support.
 
 ## Structure
 
-- `frontend/` — React + Vite PWA for managing your VPN fleet and exporting WireGuard profiles.
-- `backend/` — TypeScript AWS Lambda function exposed through API Gateway.
-- `docker/` — Docker resources for local development.
-- `.github/workflows/` — CI pipeline running lint/build/tests.
+- `backend/` - TypeScript Lambda handler exposed through API Gateway (unchanged).
+- `apps/ios/` - Standalone PWA codebase (Vite + React + Tailwind + React Query).
+- `apps/desktop/` - Electron desktop app (React renderer + Electron shell) built independently.
+- `docker/` - Shared Node 20 dev image used by docker-compose services.
+- `infra/` - SAM template + helper scripts when you need to redeploy AWS resources manually.
+- `docs/` - Architecture notes and troubleshooting.
 
-See `docs/` for in-depth architecture and deployment details.
+No CI/CD remains in the repository. Build, release and infrastructure updates are now manual on purpose.
 
-## Getting Started
+## Development workflow
 
-1. Copy `.env.example` to `.env.local` and adjust AWS details (S3 bucket, instance profile, etc.).
-2. Install dependencies:
-   ```bash
-   npm install --prefix backend
-   npm install --prefix frontend
-   ```
-3. Run the backend locally (http://localhost:3000):
-   ```bash
-   npm run dev --prefix backend
-   ```
-4. Start the PWA (http://localhost:5173):
-   ```bash
-   npm run dev --prefix frontend
-   ```
+### Backend API
+```bash
+cd backend
+npm install
+npm run dev         # starts the local lambda emulator on http://localhost:3000
+```
+Environment variables are read from `.env.local` the same way as before. The frontend proxies `/api` to `http://localhost:3000` during development.
 
-The frontend proxies API calls to the backend via `/api` during development.
+### iOS/Web PWA
+```bash
+cd apps/ios
+npm install
+npm run dev -- --host 0.0.0.0   # http://localhost:5173
+npm run build                   # outputs to apps/ios/dist
+```
+The Vite config now uses a `/` base path (no Electron-specific tweaks). Use `npm run build` when you need an offline bundle to upload to S3/CloudFront or to hand over to the desktop app.
 
-## Docker Dev Environment
+### Desktop Electron app
+```bash
+cd apps/desktop
+npm install
+npm run dev       # launches the desktop Vite renderer (5174) + Electron simultaneously
+npm run build     # builds the renderer then packages with electron-builder
+npm run build:win # builds the portable Windows target (requires Wine on Linux)
+```
+The renderer is now a standalone React app that talks to the backend and Electron preload directly—no dependency on the iOS build artifacts anymore.
+
+## Docker dev environment
+
+`docker compose up backend ios` spins up the API (port 3000) and the installable PWA (port 5173) inside containers. The `desktop` service keeps a ready-to-use toolchain for Electron builds:
 
 ```bash
+# Start everything (backend, ios dev server, idle desktop builder)
 docker compose up --build
+
+# Package the desktop app from the container
+docker compose exec desktop bash -lc "cd apps/desktop && npm run build"
 ```
+Artifacts are written under `apps/desktop/release` on your host thanks to the shared workspace volume.
 
-This builds the Node.js image defined in `docker/dev.Dockerfile`, installs dependencies, runs the backend API emulator, and serves the PWA with hot reload. Update environment variables in `docker-compose.yml` for your AWS account.
+## Manual release checklist
 
-## CI/CD
+1. **Backend** - run `npm run build` in `backend/` and deploy with SAM/CloudFormation using the templates in `infra/`.
+2. **iOS/Web** - `npm run build` inside `apps/ios`, then upload the `dist/` folder to your hosting bucket/CloudFront distribution.
+3. **Desktop** - `npm run build` (or `npm run build:win`) inside `apps/desktop`.
+4. **Environment variables** - update `.env.local`, `docker-compose.yml`, and any deployment scripts manually; no GitHub secrets/CI remain.
 
-- GitHub Actions workflow (`.github/workflows/ci.yml`) installs dependencies, lints, tests, builds, puis déploie automatiquement l'infra et le frontend sur `main`.
-- Le job `deploy` package la Lambda avec SAM, applique le stack CloudFormation, synchronise la PWA vers un bucket S3, supprime ensuite le bucket d'artefacts SAM.
-
-### Secrets GitHub à définir
-
-| Secret | Description |
-| --- | --- |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Obligatoire. Identifiants IAM autorisés à créer les stacks, les buckets. |
-| `AWS_REGION` (optionnel) | Région utilisée par la CI/CD. Par défaut `eu-west-3` si le secret est absent. |
-| `SAM_STACK_NAME` (optionnel) | Nom du stack CloudFormation (défaut `vpn-pwa`). |
-| `SAM_ARTIFACT_BUCKET` (optionnel) | Bucket S3 pour les artefacts SAM. Laisse vide pour qu'il soit créé automatiquement (`<stack>-artifacts`). |
-| `VPN_CONFIG_BUCKET` (optionnel) | Bucket S3 pour les fichiers WireGuard. Vide ⇒ créé automatiquement (`<stack>-wireguard-config`). |
-| `VPN_INSTANCE_PROFILE_ARN` (optionnel) | ARN d'un profile IAM EC2 existant. Vide ⇒ le stack crée un rôle + profile adapté. |
-| `VPN_API_URL` (optionnel) | URL publique de l'API. Vide ⇒ la CI récupère l'endpoint API Gateway du stack. |
-| `FRONTEND_BUCKET` (optionnel) | Bucket S3 pour héberger la PWA. Vide ⇒ créé automatiquement (`<stack>-pwa-hosting`). |
-| `FRONTEND_PUBLIC_URL` (optionnel) | URL publique de la PWA (affichée dans l’onglet Environments GitHub). |
-| `VPN_PROJECT_TAG`, `VPN_OWNER_TAG`, `VPN_INSTANCE_TYPE`, `VPN_ALLOWED_REGIONS`, `VPN_DEFAULT_REGION`, `VPN_WG_PORT` (optionnels) | Override des paramètres par défaut du template SAM (`VPN_INSTANCE_TYPE` par défaut `t4g.micro`). |
-
-Le workflow crée automatiquement les buckets et l'instance profile si tu laisses les secrets correspondants vides. Ton utilisateur IAM doit toutefois avoir les autorisations `s3:*`, `cloudformation:*`, `iam:PassRole/iam:CreateRole`, `iam:CreateInstanceProfile`, etc. Si `AWS_REGION` n'est pas fourni, la CI utilisera `eu-west-3` par défaut.
-
-Le build frontend utilise `VPN_API_URL` si présent, sinon il récupère l'endpoint HTTP API renvoyé par CloudFormation.
-
-## Deployment Notes
-
-- Le stack peut créer automatiquement les buckets (config + frontend) ainsi que le profile IAM EC2 (`INSTANCE_PROFILE_ARN`). Tu peux aussi fournir tes ressources existantes via les secrets. Par défaut, les instances EC2 déployées sont des `t4g.micro` (ARM64) basées sur l'AMI Amazon Linux 2023 arm64 (`al2023-ami-kernel-default-arm64`).
-- Expose the Lambda via API Gateway and configure CORS to allow your PWA origin.
-- Provide the API URL to the frontend via `VITE_API_URL` at build time.
-- Use `infra/template.yaml` with AWS SAM to deploy the Lambda + HTTP API quickly.
-
-## WireGuard Export UX
-
-- iOS: tap **Exporter vers WireGuard (iOS)**, the PWA uses the Web Share API (when available) to hand the `.conf` file to the official WireGuard app.
-- Desktop: tap **Télécharger (PC)** to download `vpn.conf`, then run `wireguard.exe /installtunnelservice vpn.conf` on Windows (or import manually on macOS/Linux).
+With CI removed you are in full control: run lint/tests (`npm run lint`, `npm run test`) from each package whenever you need them, gate releases however you prefer, and push artifacts manually.

@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: '/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      injectRegister: 'inline', // Inject inline to avoid external registerSW.js
       manifest: {
         name: 'VPN Control',
         short_name: 'VPN',
@@ -43,4 +45,3 @@ export default defineConfig({
     }
   }
 });
-

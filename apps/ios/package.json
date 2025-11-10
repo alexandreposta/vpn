@@ -1,8 +1,9 @@
 {
-  "name": "vpn-frontend",
-  "version": "0.1.0",
+  "name": "vpn-ios",
+  "version": "1.0.0",
+  "description": "VPN Manager - iOS-ready PWA for managing WireGuard VPN instances",
+  "author": "Alexandre Posta",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,16 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
+  "devDependencies": {
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.1.5",
     "@tanstack/react-query": "^5.35.5",
-    "axios": "^1.6.8",
-    "clsx": "^2.1.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
-  "devDependencies": {
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
     "@types/react": "^18.2.69",
@@ -28,7 +23,9 @@
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "axios": "^1.6.8",
     "autoprefixer": "^10.4.18",
+    "clsx": "^2.1.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
@@ -37,6 +34,8 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "jsdom": "^24.0.0",
     "postcss": "^8.4.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.3",
     "vite": "^5.2.0",

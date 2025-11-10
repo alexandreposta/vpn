@@ -14,8 +14,12 @@ const userDataTemplate = ({
 set -euxo pipefail
 exec > >(tee /var/log/wireguard-bootstrap.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-REGION="$(curl -s http://169.254.169.254/latest/meta-data/placement/region)"
-INSTANCE_ID="$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+# Get token for IMDSv2
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
+
+# Get metadata using IMDSv2
+REGION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/placement/region)
+INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
 
 yum update -y
 yum install -y wireguard-tools iptables-services jq awscli
@@ -64,7 +68,7 @@ DNS = 1.1.1.1
 [Peer]
 PublicKey = \${SERVER_PUBLIC_KEY}
 AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):${port}
+Endpoint = $(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4):${port}
 PersistentKeepalive = 25
 EOF
 

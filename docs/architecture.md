@@ -39,7 +39,7 @@
 ## Local Development
 
 - Docker image with Node.js 20 + npm to run lint/test/build for both apps.
-- `docker-compose.yml` spins up the backend HTTP emulator (`npm run dev`) and the frontend dev server.
+- `docker-compose.yml` spins up the backend HTTP emulator (`npm run dev`) and the `apps/ios` dev server.
 - `.env.*` files hold mock credentials when running locally.
 
 ## CI/CD
